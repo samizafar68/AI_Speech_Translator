@@ -1,5 +1,5 @@
-import streamlit as st
-from transformers import pipeline
+import gradio as gr
+import whisper
 import requests
 import os
 from gtts import gTTS  # Import gTTS for Text-to-Speech
@@ -9,63 +9,26 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --------------------------
-# SET PAGE CONFIG (Must be the first command)
-# --------------------------
-st.set_page_config(page_title="AI Speech Translator", page_icon="🎙️", layout="wide")
-
-# Custom CSS for UI Styling
-st.markdown("""
-    <style>
-        body {
-            background-color: #1e1e1e;
-            color: #d4af37;
-        }
-        .stButton>button {
-            background-color: #8b5e3c;
-            color: white;
-            border-radius: 8px;
-            padding: 10px;
-        }
-        .stTextArea textarea, .stSelectbox select {
-            background-color: #3e2723;
-            color: white;
-            border-radius: 8px;
-        }
-        .stAudio audio {
-            width: 100%;
-        }
-        .css-1d391kg p {
-            color: #d4af37;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-# --------------------------
 # CONFIGURE API KEYS (Replace with yours)
 # --------------------------
-GEMINI_API_KEY = st.secrets["google"]["gemini_api_key"]
+GEMINI_API_KEY = os.getenv("gemini")
+
 
 # --------------------------
-# LOAD WHISPER MODEL ONCE USING HUGGING FACE PIPELINE
+# LOAD WHISPER MODEL ONCE
 # --------------------------
-@st.cache_resource
-def load_whisper():
-    return pipeline("automatic-speech-recognition", model="openai/whisper-small")
-
-whisper_model = load_whisper()
+whisper_model = whisper.load_model("large")
 
 # --------------------------
-# FUNCTION: Speech to Text (Hugging Face Whisper)
+# FUNCTION: Speech to Text (Whisper)
 # --------------------------
 def convert_speech_to_text(audio_file):
     try:
-        # Temporary file to save uploaded audio
         audio_path = "temp_audio.wav"
         with open(audio_path, "wb") as f:
             f.write(audio_file.read())
-
-        # Use Hugging Face pipeline to transcribe audio
-        result = whisper_model(audio_path)
+        
+        result = whisper_model.transcribe(audio_path)
         os.remove(audio_path)  # Clean up temporary file
         return result["text"]
     except Exception as e:
@@ -107,78 +70,54 @@ def text_to_speech(text, language):
         return f"Error: {str(e)}"
 
 # --------------------------
-# STREAMLIT UI LAYOUT
+# GRADIO INTERFACE
 # --------------------------
-st.sidebar.markdown("<h1 style='text-align: center; color :solid black'>🎙️ AI Speech Translator</h1>", unsafe_allow_html=True)
-st.sidebar.markdown("<p style='text-align: center;'>A simple tool for speech-to-text, text-to-speech, and translations* 🎧</p>", unsafe_allow_html=True)
 
-# CHECKBOX SELECTION
-mode = st.sidebar.radio("Select Mode", ["Speech to Speech", "Text to Speech", "Speech to Text"], index=0)
+def speech_to_speech(audio_file, target_language):
+    text = convert_speech_to_text(audio_file)
+    translated_text = translate_text(text, target_language)
+    audio_path = text_to_speech(translated_text, target_language)
+    return audio_path
 
-# Mapping language codes to full names
-language_map = {
-    "fr": "French",
-    "es": "Spanish",
-    "de": "German",
-    "hi": "Hindi",
-    "ur": "Urdu",
-    "en": "English",
-    "it": "Italian",
-    "nl": "Dutch",
-    "pt": "Portuguese",
-    "ru": "Russian",
-    "zh": "Chinese",
-    "ja": "Japanese",
-    "ko": "Korean"
-}
+def text_to_speech_fn(input_text, language):
+    translated_text = translate_text(input_text, language)
+    audio_path = text_to_speech(translated_text, language)
+    return audio_path
 
-# --------------------------
-# HANDLING MODE SELECTIONS
-# --------------------------
-if mode == "Speech to Speech":
-    st.subheader("🎤 Upload Audio for Translation")
-    audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3"])
-    target_language = st.selectbox("Select Target Language", list(language_map.keys()), format_func=lambda x: language_map[x])
-    
-    if st.button("Translate Speech") and audio_file:
-        text = convert_speech_to_text(audio_file)
-        translated_text = translate_text(text, target_language)
-        audio_path = text_to_speech(translated_text, target_language)
-        
-        if os.path.exists(audio_path):
-            st.subheader("🎧 Translated Speech")
-            st.audio(audio_path, format="audio/mp3")
-            os.remove(audio_path)
-        else:
-            st.error("Error generating speech")
+def speech_to_text_fn(audio_file, language):
+    text = convert_speech_to_text(audio_file)
+    translated_text = translate_text(text, language)
+    return translated_text
 
-elif mode == "Text to Speech":
-    st.subheader("📝 Enter Text for Speech Synthesis")
-    input_text = st.text_area("Enter text to convert to speech")
-    language = st.selectbox("Select Language", list(language_map.keys()), format_func=lambda x: language_map[x])
-    
-    if st.button("Generate Speech") and input_text:
-        translated_text = translate_text(input_text, language)
-        audio_path = text_to_speech(translated_text, language)
-        if os.path.exists(audio_path):
-            st.subheader("🔊 Generated Speech")
-            st.audio(audio_path, format="audio/mp3")
-            os.remove(audio_path)
-        else:
-            st.error("Error generating speech")
+# Define Gradio Interface
+iface = gr.Interface(
+    fn=speech_to_speech,
+    inputs=[
+        gr.inputs.Audio(source="microphone", type="file"),
+        gr.inputs.Dropdown(["fr", "es", "de", "hi", "ur", "en", "it", "nl", "pt", "ru", "zh", "ja", "ko"], label="Target Language")
+    ],
+    outputs=gr.outputs.Audio(label="Translated Speech"),
+    live=True,
+    title="AI Speech Translator"
+)
 
-elif mode == "Speech to Text":
-    st.subheader("🎙️ Upload Audio for Transcription")
-    audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3"])
-    language = st.selectbox("Select Language",list(language_map.keys()), format_func=lambda x: language_map[x])
-    
-    if st.button("Convert to Text") and audio_file:
-        text = convert_speech_to_text(audio_file)
-        translated_text = translate_text(text, language)
-        st.subheader("📄 Transcribed Text")
-        st.info(translated_text)
+iface.add_component(
+    gr.Interface(
+        fn=text_to_speech_fn,
+        inputs=[gr.inputs.Textbox(label="Text to Convert to Speech"), gr.inputs.Dropdown(["fr", "es", "de", "hi", "ur", "en", "it", "nl", "pt", "ru", "zh", "ja", "ko"], label="Language")],
+        outputs=gr.outputs.Audio(label="Generated Speech")
+    ),
+    "Text to Speech"
+)
 
-st.markdown("""
-    <hr>
-    <p style="text-align: center; color: #d4af37;">© 2025 AI Speech Translator | Built by M Ismail Danial</p>
-""", unsafe_allow_html=True)
+iface.add_component(
+    gr.Interface(
+        fn=speech_to_text_fn,
+        inputs=[gr.inputs.Audio(source="microphone", type="file"), gr.inputs.Dropdown(["fr", "es", "de", "hi", "ur", "en", "it", "nl", "pt", "ru", "zh", "ja", "ko"], label="Language")],
+        outputs=gr.outputs.Textbox(label="Transcribed Text")
+    ),
+    "Speech to Text"
+)
+
+# Launch the interface
+iface.launch()
