@@ -1,35 +1,34 @@
-import gradio as gr
+
+import streamlit as st
 import whisper
 import requests
 import os
-from gtts import gTTS  # Import gTTS for Text-to-Speech
+from gtts import gTTS
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
 # --------------------------
-# CONFIGURE API KEYS (Replace with yours)
+# CONFIGURE API KEYS
 # --------------------------
 GEMINI_API_KEY = os.getenv("gemini")
-
 
 # --------------------------
 # LOAD WHISPER MODEL ONCE
 # --------------------------
-whisper_model = whisper.load_model("large")
+@st.cache_resource
+def load_whisper_model():
+    return whisper.load_model("large")
+
+whisper_model = load_whisper_model()
 
 # --------------------------
 # FUNCTION: Speech to Text (Whisper)
 # --------------------------
-def convert_speech_to_text(audio_file):
+def convert_speech_to_text(audio_path):
     try:
-        audio_path = "temp_audio.wav"
-        with open(audio_path, "wb") as f:
-            f.write(audio_file.read())
-        
         result = whisper_model.transcribe(audio_path)
-        os.remove(audio_path)  # Clean up temporary file
         return result["text"]
     except Exception as e:
         return f"Error: {str(e)}"
@@ -70,54 +69,76 @@ def text_to_speech(text, language):
         return f"Error: {str(e)}"
 
 # --------------------------
-# GRADIO INTERFACE
+# STREAMLIT UI
 # --------------------------
+st.set_page_config(page_title="AI Speech Translator", page_icon="🔊", layout="centered")
 
-def speech_to_speech(audio_file, target_language):
-    text = convert_speech_to_text(audio_file)
-    translated_text = translate_text(text, target_language)
-    audio_path = text_to_speech(translated_text, target_language)
-    return audio_path
+st.title("🔊 AI Speech Translator")
+st.write("Convert Speech to Text, Translate it, and Generate Speech in Another Language.")
 
-def text_to_speech_fn(input_text, language):
-    translated_text = translate_text(input_text, language)
-    audio_path = text_to_speech(translated_text, language)
-    return audio_path
+# Sidebar for language selection
+target_language = st.sidebar.selectbox("Select Target Language:", ["fr", "es", "de", "hi", "ur", "en", "it", "nl", "pt", "ru", "zh", "ja", "ko"])
 
-def speech_to_text_fn(audio_file, language):
-    text = convert_speech_to_text(audio_file)
-    translated_text = translate_text(text, language)
-    return translated_text
+# Tabs for different functionalities
+tab1, tab2, tab3 = st.tabs(["🎤 Speech to Speech", "📝 Text to Speech", "🎙 Speech to Text"])
 
-# Define Gradio Interface
-iface = gr.Interface(
-    fn=speech_to_speech,
-    inputs=[
-        gr.inputs.Audio(source="microphone", type="file"),
-        gr.inputs.Dropdown(["fr", "es", "de", "hi", "ur", "en", "it", "nl", "pt", "ru", "zh", "ja", "ko"], label="Target Language")
-    ],
-    outputs=gr.outputs.Audio(label="Translated Speech"),
-    live=True,
-    title="AI Speech Translator"
-)
+# --------------------------
+# TAB 1: Speech to Speech
+# --------------------------
+with tab1:
+    st.header("🎤 Speech to Speech Translation")
+    audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "m4a"])
 
-iface.add_component(
-    gr.Interface(
-        fn=text_to_speech_fn,
-        inputs=[gr.inputs.Textbox(label="Text to Convert to Speech"), gr.inputs.Dropdown(["fr", "es", "de", "hi", "ur", "en", "it", "nl", "pt", "ru", "zh", "ja", "ko"], label="Language")],
-        outputs=gr.outputs.Audio(label="Generated Speech")
-    ),
-    "Text to Speech"
-)
+    if st.button("Convert & Translate"):
+        if audio_file is not None:
+            with open("temp_audio.wav", "wb") as f:
+                f.write(audio_file.read())
 
-iface.add_component(
-    gr.Interface(
-        fn=speech_to_text_fn,
-        inputs=[gr.inputs.Audio(source="microphone", type="file"), gr.inputs.Dropdown(["fr", "es", "de", "hi", "ur", "en", "it", "nl", "pt", "ru", "zh", "ja", "ko"], label="Language")],
-        outputs=gr.outputs.Textbox(label="Transcribed Text")
-    ),
-    "Speech to Text"
-)
+            text = convert_speech_to_text("temp_audio.wav")
+            translated_text = translate_text(text, target_language)
+            audio_path = text_to_speech(translated_text, target_language)
 
-# Launch the interface
-iface.launch()
+            st.success(f"Transcribed Text: {text}")
+            st.success(f"Translated Text: {translated_text}")
+            st.audio(audio_path, format="audio/mp3")
+        else:
+            st.error("Please upload an audio file.")
+
+# --------------------------
+# TAB 2: Text to Speech
+# --------------------------
+with tab2:
+    st.header("📝 Text to Speech Conversion")
+    input_text = st.text_area("Enter text to convert:")
+    
+    if st.button("Generate Speech"):
+        if input_text:
+            translated_text = translate_text(input_text, target_language)
+            audio_path = text_to_speech(translated_text, target_language)
+
+            st.success(f"Translated Text: {translated_text}")
+            st.audio(audio_path, format="audio/mp3")
+        else:
+            st.error("Please enter some text.")
+
+# --------------------------
+# TAB 3: Speech to Text
+# --------------------------
+with tab3:
+    st.header("🎙 Speech to Text")
+    audio_file = st.file_uploader("Upload an audio file for transcription", type=["wav", "mp3", "m4a"], key="stt")
+
+    if st.button("Transcribe"):
+        if audio_file is not None:
+            with open("temp_audio.wav", "wb") as f:
+                f.write(audio_file.read())
+
+            text = convert_speech_to_text("temp_audio.wav")
+            translated_text = translate_text(text, target_language)
+
+            st.success(f"Transcribed Text: {text}")
+            st.success(f"Translated Text: {translated_text}")
+        else:
+            st.error("Please upload an audio file.")
+
+st.write("🔹 Developed by Sami - AI Speech Translator powered by Whisper & Gemini.")
