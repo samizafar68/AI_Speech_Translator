@@ -1,5 +1,5 @@
 import streamlit as st
-import whisper
+from transformers import pipeline
 import requests
 import os
 from gtts import gTTS  # Import gTTS for Text-to-Speech
@@ -46,25 +46,26 @@ st.markdown("""
 GEMINI_API_KEY = st.secrets["google"]["gemini_api_key"]
 
 # --------------------------
-# LOAD WHISPER MODEL ONCE (No cache decorator)
+# LOAD WHISPER MODEL ONCE USING HUGGING FACE PIPELINE
 # --------------------------
+@st.cache_resource
 def load_whisper():
-    return whisper.load_model("small")
+    return pipeline("automatic-speech-recognition", model="openai/whisper-small")
 
 whisper_model = load_whisper()
 
 # --------------------------
-# FUNCTION: Speech to Text (Whisper)
+# FUNCTION: Speech to Text (Hugging Face Whisper)
 # --------------------------
 def convert_speech_to_text(audio_file):
     try:
+        # Temporary file to save uploaded audio
         audio_path = "temp_audio.wav"
-        
-        # Save the uploaded audio file
         with open(audio_path, "wb") as f:
             f.write(audio_file.read())
-        
-        result = whisper_model.transcribe(audio_path)
+
+        # Use Hugging Face pipeline to transcribe audio
+        result = whisper_model(audio_path)
         os.remove(audio_path)  # Clean up temporary file
         return result["text"]
     except Exception as e:
@@ -113,6 +114,7 @@ st.sidebar.markdown("<p style='text-align: center;'>A simple tool for speech-to-
 
 # CHECKBOX SELECTION
 mode = st.sidebar.radio("Select Mode", ["Speech to Speech", "Text to Speech", "Speech to Text"], index=0)
+
 # Mapping language codes to full names
 language_map = {
     "fr": "French",
