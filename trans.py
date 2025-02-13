@@ -53,7 +53,7 @@ GEMINI_API_KEY = st.secrets["google"]["gemini_api_key"]
 # --------------------------
 @st.cache_resource
 def load_whisper():
-    return whisper.load_model("medium")
+    return whisper.load_model("small")
 
 whisper_model = load_whisper()
 
