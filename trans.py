@@ -16,7 +16,6 @@ st.set_page_config(page_title="AI Speech Translator", page_icon="🎙️", layou
 # Custom CSS for UI Styling
 st.markdown("""
     <style>
-            
         body {
             background-color: #1e1e1e;
             color: #d4af37;
@@ -38,9 +37,7 @@ st.markdown("""
         .css-1d391kg p {
             color: #d4af37;
         }
-        
     </style>
-            
 """, unsafe_allow_html=True)
 
 # --------------------------
@@ -49,9 +46,8 @@ st.markdown("""
 GEMINI_API_KEY = st.secrets["google"]["gemini_api_key"]
 
 # --------------------------
-# LOAD WHISPER MODEL ONCE
+# LOAD WHISPER MODEL ONCE (No cache decorator)
 # --------------------------
-@st.cache_resource
 def load_whisper():
     return whisper.load_model("small")
 
@@ -63,6 +59,8 @@ whisper_model = load_whisper()
 def convert_speech_to_text(audio_file):
     try:
         audio_path = "temp_audio.wav"
+        
+        # Save the uploaded audio file
         with open(audio_path, "wb") as f:
             f.write(audio_file.read())
         
@@ -131,6 +129,7 @@ language_map = {
     "ja": "Japanese",
     "ko": "Korean"
 }
+
 # --------------------------
 # HANDLING MODE SELECTIONS
 # --------------------------
