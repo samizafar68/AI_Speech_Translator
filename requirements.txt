@@ -1,5 +1,8 @@
-gradio
-whisper
-requests
+streamlit
+openai-whisper
+torch
+torchaudio
+ffmpeg
 gtts
+requests
 python-dotenv
