@@ -1,9 +1,5 @@
 streamlit
-openai-whisper
-torch
-ffmpeg-python
-gtts
+whisper
 requests
+gtts
 python-dotenv
-setuptools-rust
-pydub
