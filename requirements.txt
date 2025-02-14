@@ -6,3 +6,4 @@ gtts
 requests
 python-dotenv
 setuptools-rust
+pydub
