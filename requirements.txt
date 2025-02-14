@@ -2,4 +2,5 @@ streamlit
 openai-whisper
 requests
 gtts
+ffmpeg
 python-dotenv
