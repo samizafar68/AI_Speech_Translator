@@ -4,6 +4,7 @@ import requests
 import os
 from gtts import gTTS  # Import gTTS for Text-to-Speech
 from dotenv import load_dotenv
+from pydub import AudioSegment
 
 # Load environment variables from .env file
 load_dotenv()
