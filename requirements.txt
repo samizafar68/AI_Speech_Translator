@@ -1,8 +1,8 @@
-streamlit==1.10.0
-openai-whisper==1.0.0
-torch==1.10.0
-ffmpeg-python==0.2.0
-gtts==2.2.3
-requests==2.28.0
-python-dotenv==0.19.2
-setuptools-rust==1.4.0
+streamlit
+openai-whisper
+torch
+ffmpeg-python
+gtts
+requests
+python-dotenv
+setuptools-rust
