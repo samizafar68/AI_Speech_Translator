@@ -19,7 +19,7 @@ GEMINI_API_KEY = os.getenv("gemini")
 # --------------------------
 @st.cache_resource
 def load_whisper_model():
-    return whisper.load_model("large")
+    return whisper.load_model("small")
 
 whisper_model = load_whisper_model()
 
