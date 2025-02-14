@@ -1,18 +1,22 @@
-
 import streamlit as st
+
+# Set page config as the first Streamlit command
+st.set_page_config(page_title="AI Speech Translator", page_icon="🔊", layout="centered")
+
 import whisper
 import requests
 import os
 from gtts import gTTS
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
 # --------------------------
 # CONFIGURE API KEYS
 # --------------------------
 GEMINI_API_KEY = st.secrets["google"]["gemini_api_key"]
+
 # --------------------------
 # LOAD WHISPER MODEL ONCE
 # --------------------------
@@ -70,8 +74,6 @@ def text_to_speech(text, language):
 # --------------------------
 # STREAMLIT UI
 # --------------------------
-st.set_page_config(page_title="AI Speech Translator", page_icon="🔊", layout="centered")
-
 st.title("🔊 AI Speech Translator")
 st.write("Convert Speech to Text, Translate it, and Generate Speech in Another Language.")
 
@@ -109,7 +111,7 @@ with tab1:
 with tab2:
     st.header("📝 Text to Speech Conversion")
     input_text = st.text_area("Enter text to convert:")
-    
+
     if st.button("Generate Speech"):
         if input_text:
             translated_text = translate_text(input_text, target_language)
