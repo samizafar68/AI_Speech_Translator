@@ -1,37 +1,73 @@
 import streamlit as st
-
-# Set page config as the first Streamlit command
-st.set_page_config(page_title="AI Speech Translator", page_icon="🔊", layout="centered")
-
 import whisper
 import requests
 import os
-from gtts import gTTS
+from gtts import gTTS  # Import gTTS for Text-to-Speech
+import os
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
 
 # --------------------------
-# CONFIGURE API KEYS
+# SET PAGE CONFIG (Must be the first command)
+# --------------------------
+st.set_page_config(page_title="AI Speech Translator", page_icon="🎙️", layout="wide")
+
+# Custom CSS for UI Styling
+st.markdown("""
+    <style>
+            
+        body {
+            background-color: #1e1e1e;
+            color: #d4af37;
+        }
+        .stButton>button {
+            background-color: #8b5e3c;
+            color: white;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .stTextArea textarea, .stSelectbox select {
+            background-color: #3e2723;
+            color: white;
+            border-radius: 8px;
+        }
+        .stAudio audio {
+            width: 100%;
+        }
+        .css-1d391kg p {
+            color: #d4af37;
+        }
+        
+    </style>
+            
+""", unsafe_allow_html=True)
+
+# --------------------------
+# CONFIGURE API KEYS (Replace with yours)
 # --------------------------
 GEMINI_API_KEY = st.secrets["google"]["gemini_api_key"]
-
 # --------------------------
 # LOAD WHISPER MODEL ONCE
 # --------------------------
 @st.cache_resource
-def load_whisper_model():
-    return whisper.load_model("small")
+def load_whisper():
+    return whisper.load_model("large")
 
-whisper_model = load_whisper_model()
+whisper_model = load_whisper()
 
 # --------------------------
 # FUNCTION: Speech to Text (Whisper)
 # --------------------------
-def convert_speech_to_text(audio_path):
+def convert_speech_to_text(audio_file):
     try:
+        audio_path = "temp_audio.wav"
+        with open(audio_path, "wb") as f:
+            f.write(audio_file.read())
+        
         result = whisper_model.transcribe(audio_path)
+        os.remove(audio_path)  # Clean up temporary file
         return result["text"]
     except Exception as e:
         return f"Error: {str(e)}"
@@ -72,74 +108,76 @@ def text_to_speech(text, language):
         return f"Error: {str(e)}"
 
 # --------------------------
-# STREAMLIT UI
+# STREAMLIT UI LAYOUT
 # --------------------------
-st.title("🔊 AI Speech Translator")
-st.write("Convert Speech to Text, Translate it, and Generate Speech in Another Language.")
+st.sidebar.markdown("<h1 style='text-align: center; color :solid black'>🎙️ AI Speech Translator</h1>", unsafe_allow_html=True)
+st.sidebar.markdown("<p style='text-align: center;'>A simple tool for speech-to-text, text-to-speech, and translations* 🎧</p>", unsafe_allow_html=True)
 
-# Sidebar for language selection
-target_language = st.sidebar.selectbox("Select Target Language:", ["fr", "es", "de", "hi", "ur", "en", "it", "nl", "pt", "ru", "zh", "ja", "ko"])
-
-# Tabs for different functionalities
-tab1, tab2, tab3 = st.tabs(["🎤 Speech to Speech", "📝 Text to Speech", "🎙 Speech to Text"])
-
+# CHECKBOX SELECTION
+mode = st.sidebar.radio("Select Mode", ["Speech to Speech", "Text to Speech", "Speech to Text"], index=0)
+# Mapping language codes to full names
+language_map = {
+    "fr": "French",
+    "es": "Spanish",
+    "de": "German",
+    "hi": "Hindi",
+    "ur": "Urdu",
+    "en": "English",
+    "it": "Italian",
+    "nl": "Dutch",
+    "pt": "Portuguese",
+    "ru": "Russian",
+    "zh": "Chinese",
+    "ja": "Japanese",
+    "ko": "Korean"
+}
 # --------------------------
-# TAB 1: Speech to Speech
+# HANDLING MODE SELECTIONS
 # --------------------------
-with tab1:
-    st.header("🎤 Speech to Speech Translation")
-    audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "m4a"])
-
-    if st.button("Convert & Translate"):
-        if audio_file is not None:
-            with open("temp_audio.wav", "wb") as f:
-                f.write(audio_file.read())
-
-            text = convert_speech_to_text("temp_audio.wav")
-            translated_text = translate_text(text, target_language)
-            audio_path = text_to_speech(translated_text, target_language)
-
-            st.success(f"Transcribed Text: {text}")
-            st.success(f"Translated Text: {translated_text}")
+if mode == "Speech to Speech":
+    st.subheader("🎤 Upload Audio for Translation")
+    audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3"])
+    target_language = st.selectbox("Select Target Language", list(language_map.keys()), format_func=lambda x: language_map[x])
+    
+    if st.button("Translate Speech") and audio_file:
+        text = convert_speech_to_text(audio_file)
+        translated_text = translate_text(text, target_language)
+        audio_path = text_to_speech(translated_text, target_language)
+        
+        if os.path.exists(audio_path):
+            st.subheader("🎧 Translated Speech")
             st.audio(audio_path, format="audio/mp3")
+            os.remove(audio_path)
         else:
-            st.error("Please upload an audio file.")
+            st.error("Error generating speech")
 
-# --------------------------
-# TAB 2: Text to Speech
-# --------------------------
-with tab2:
-    st.header("📝 Text to Speech Conversion")
-    input_text = st.text_area("Enter text to convert:")
-
-    if st.button("Generate Speech"):
-        if input_text:
-            translated_text = translate_text(input_text, target_language)
-            audio_path = text_to_speech(translated_text, target_language)
-
-            st.success(f"Translated Text: {translated_text}")
+elif mode == "Text to Speech":
+    st.subheader("📝 Enter Text for Speech Synthesis")
+    input_text = st.text_area("Enter text to convert to speech")
+    language = st.selectbox("Select Language", list(language_map.keys()), format_func=lambda x: language_map[x])
+    
+    if st.button("Generate Speech") and input_text:
+        translated_text = translate_text(input_text, language)
+        audio_path = text_to_speech(translated_text, language)
+        if os.path.exists(audio_path):
+            st.subheader("🔊 Generated Speech")
             st.audio(audio_path, format="audio/mp3")
+            os.remove(audio_path)
         else:
-            st.error("Please enter some text.")
+            st.error("Error generating speech")
 
-# --------------------------
-# TAB 3: Speech to Text
-# --------------------------
-with tab3:
-    st.header("🎙 Speech to Text")
-    audio_file = st.file_uploader("Upload an audio file for transcription", type=["wav", "mp3", "m4a"], key="stt")
+elif mode == "Speech to Text":
+    st.subheader("🎙️ Upload Audio for Transcription")
+    audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3"])
+    language = st.selectbox("Select Language",list(language_map.keys()), format_func=lambda x: language_map[x])
+    
+    if st.button("Convert to Text") and audio_file:
+        text = convert_speech_to_text(audio_file)
+        translated_text = translate_text(text, language)
+        st.subheader("📄 Transcribed Text")
+        st.info(translated_text)
 
-    if st.button("Transcribe"):
-        if audio_file is not None:
-            with open("temp_audio.wav", "wb") as f:
-                f.write(audio_file.read())
-
-            text = convert_speech_to_text("temp_audio.wav")
-            translated_text = translate_text(text, target_language)
-
-            st.success(f"Transcribed Text: {text}")
-            st.success(f"Translated Text: {translated_text}")
-        else:
-            st.error("Please upload an audio file.")
-
-st.write("🔹 Developed by Sami - AI Speech Translator powered by Whisper & Gemini.")
+st.markdown("""
+    <hr>
+    <p style="text-align: center; color: #d4af37;">© 2025 AI Speech Translator | Built by M Ismail Danial</p>
+""", unsafe_allow_html=True)
