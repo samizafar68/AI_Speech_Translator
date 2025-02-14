@@ -4,7 +4,6 @@ import requests
 import os
 from gtts import gTTS  # Import gTTS for Text-to-Speech
 from dotenv import load_dotenv
-from pydub import AudioSegment
 
 # Load environment variables from .env file
 load_dotenv()
@@ -47,11 +46,13 @@ st.markdown("""
 GEMINI_API_KEY = st.secrets["google"]["gemini_api_key"]
 
 # --------------------------
-# LOAD WHISPER MODEL ONCE
+# LOAD WHISPER MODEL ONCE (Ensure FP32 Mode)
 # --------------------------
 @st.cache_resource
 def load_whisper():
-    return whisper.load_model("small", device="cpu")
+    model = whisper.load_model("small", device="cpu")  # Load model with CPU
+    model.to("cpu")  # Explicitly set model to CPU (FP32)
+    return model
 
 whisper_model = load_whisper()
 
@@ -113,8 +114,6 @@ st.sidebar.markdown("<p style='text-align: center;'>A simple tool for speech-to-
 
 # CHECKBOX SELECTION
 mode = st.sidebar.radio("Select Mode", ["Speech to Speech", "Text to Speech", "Speech to Text"], index=0)
-
-# Mapping language codes to full names
 language_map = {
     "fr": "French",
     "es": "Spanish",
@@ -131,9 +130,6 @@ language_map = {
     "ko": "Korean"
 }
 
-# --------------------------
-# HANDLING MODE SELECTIONS
-# --------------------------
 if mode == "Speech to Speech":
     st.subheader("🎤 Upload Audio for Translation")
     audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3"])
@@ -169,7 +165,7 @@ elif mode == "Text to Speech":
 elif mode == "Speech to Text":
     st.subheader("🎙️ Upload Audio for Transcription")
     audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3"])
-    language = st.selectbox("Select Language",list(language_map.keys()), format_func=lambda x: language_map[x])
+    language = st.selectbox("Select Language", list(language_map.keys()), format_func=lambda x: language_map[x])
     
     if st.button("Convert to Text") and audio_file:
         text = convert_speech_to_text(audio_file)
