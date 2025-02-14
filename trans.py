@@ -3,9 +3,8 @@ import whisper
 import requests
 import os
 from gtts import gTTS  # Import gTTS for Text-to-Speech
+import os
 from dotenv import load_dotenv
-import torchaudio  # Import torchaudio
-import tempfile  # Import tempfile to save files
 
 # Load environment variables from .env file
 load_dotenv()
@@ -18,6 +17,7 @@ st.set_page_config(page_title="AI Speech Translator", page_icon="🎙️", layou
 # Custom CSS for UI Styling
 st.markdown("""
     <style>
+            
         body {
             background-color: #1e1e1e;
             color: #d4af37;
@@ -39,22 +39,21 @@ st.markdown("""
         .css-1d391kg p {
             color: #d4af37;
         }
+        
     </style>
+            
 """, unsafe_allow_html=True)
 
 # --------------------------
 # CONFIGURE API KEYS (Replace with yours)
 # --------------------------
 GEMINI_API_KEY = st.secrets["google"]["gemini_api_key"]
-
 # --------------------------
-# LOAD WHISPER MODEL ONCE (Ensure FP32 Mode)
+# LOAD WHISPER MODEL ONCE
 # --------------------------
 @st.cache_resource
 def load_whisper():
-    model = whisper.load_model("small", device="cpu")  # Load model with CPU
-    model.to("cpu")  # Explicitly set model to CPU (FP32)
-    return model
+    return whisper.load_model("large")
 
 whisper_model = load_whisper()
 
@@ -63,22 +62,12 @@ whisper_model = load_whisper()
 # --------------------------
 def convert_speech_to_text(audio_file):
     try:
-        # Use tempfile to create a temporary file for the uploaded audio
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
-            tmp_file.write(audio_file.read())  # Write the audio content to the temporary file
-            tmp_file_path = tmp_file.name
+        audio_path = "temp_audio.wav"
+        with open(audio_path, "wb") as f:
+            f.write(audio_file.read())
         
-        # Use torchaudio to load the audio file
-        waveform, sample_rate = torchaudio.load(tmp_file_path)
-        
-        # Save to a temporary file in wav format (if needed by whisper)
-        temp_audio_path = "temp_audio.wav"
-        torchaudio.save(temp_audio_path, waveform, sample_rate)
-        
-        # Use whisper to transcribe the audio file
-        result = whisper_model.transcribe(temp_audio_path)
-        os.remove(temp_audio_path)  # Clean up temporary file
-        os.remove(tmp_file_path)  # Clean up the uploaded temporary file
+        result = whisper_model.transcribe(audio_path)
+        os.remove(audio_path)  # Clean up temporary file
         return result["text"]
     except Exception as e:
         return f"Error: {str(e)}"
@@ -126,6 +115,7 @@ st.sidebar.markdown("<p style='text-align: center;'>A simple tool for speech-to-
 
 # CHECKBOX SELECTION
 mode = st.sidebar.radio("Select Mode", ["Speech to Speech", "Text to Speech", "Speech to Text"], index=0)
+# Mapping language codes to full names
 language_map = {
     "fr": "French",
     "es": "Spanish",
@@ -141,7 +131,9 @@ language_map = {
     "ja": "Japanese",
     "ko": "Korean"
 }
-
+# --------------------------
+# HANDLING MODE SELECTIONS
+# --------------------------
 if mode == "Speech to Speech":
     st.subheader("🎤 Upload Audio for Translation")
     audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3"])
@@ -177,7 +169,7 @@ elif mode == "Text to Speech":
 elif mode == "Speech to Text":
     st.subheader("🎙️ Upload Audio for Transcription")
     audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3"])
-    language = st.selectbox("Select Language", list(language_map.keys()), format_func=lambda x: language_map[x])
+    language = st.selectbox("Select Language",list(language_map.keys()), format_func=lambda x: language_map[x])
     
     if st.button("Convert to Text") and audio_file:
         text = convert_speech_to_text(audio_file)
