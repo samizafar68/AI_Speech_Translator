@@ -110,7 +110,7 @@ def text_to_speech(text, language):
 # STREAMLIT UI LAYOUT
 # --------------------------
 st.sidebar.markdown("<h1 style='text-align: center; color :solid black'>🎙️ AI Speech Translator</h1>", unsafe_allow_html=True)
-st.sidebar.markdown("<p style='text-align: center;'>A simple tool for speech-to-text, text-to-speech, and translations* 🎧</p>", unsafe_allow_html=True)
+st.sidebar.markdown("<p style='text-align: center;'>A simple tool for speech-to-text, text-to-speech, and translations(speech to Speech)* 🎧</p>", unsafe_allow_html=True)
 
 # CHECKBOX SELECTION
 mode = st.sidebar.radio("Select Mode", ["Speech to Speech", "Text to Speech", "Speech to Text"], index=0)
@@ -175,5 +175,5 @@ elif mode == "Speech to Text":
 
 st.markdown("""
     <hr>
-    <p style="text-align: center; color: #d4af37;">© 2025 AI Speech Translator | Built by M Ismail Danial</p>
+    <p style="text-align: center; color: #d4af37;">© 2025 AI Speech Translator | Built by Samiullah</p>
 """, unsafe_allow_html=True)
