@@ -12,8 +12,7 @@ load_dotenv()
 # --------------------------
 # CONFIGURE API KEYS
 # --------------------------
-GEMINI_API_KEY = os.getenv("gemini")
-
+GEMINI_API_KEY = st.secrets["google"]["gemini_api_key"]
 # --------------------------
 # LOAD WHISPER MODEL ONCE
 # --------------------------
