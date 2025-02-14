@@ -5,6 +5,7 @@ import os
 from gtts import gTTS  # Import gTTS for Text-to-Speech
 from dotenv import load_dotenv
 import torchaudio  # Import torchaudio
+import tempfile  # Import tempfile to save files
 
 # Load environment variables from .env file
 load_dotenv()
@@ -62,8 +63,13 @@ whisper_model = load_whisper()
 # --------------------------
 def convert_speech_to_text(audio_file):
     try:
-        # Use torchaudio to load audio file
-        waveform, sample_rate = torchaudio.load(audio_file)
+        # Use tempfile to create a temporary file for the uploaded audio
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
+            tmp_file.write(audio_file.read())  # Write the audio content to the temporary file
+            tmp_file_path = tmp_file.name
+        
+        # Use torchaudio to load the audio file
+        waveform, sample_rate = torchaudio.load(tmp_file_path)
         
         # Save to a temporary file in wav format (if needed by whisper)
         temp_audio_path = "temp_audio.wav"
@@ -72,6 +78,7 @@ def convert_speech_to_text(audio_file):
         # Use whisper to transcribe the audio file
         result = whisper_model.transcribe(temp_audio_path)
         os.remove(temp_audio_path)  # Clean up temporary file
+        os.remove(tmp_file_path)  # Clean up the uploaded temporary file
         return result["text"]
     except Exception as e:
         return f"Error: {str(e)}"
