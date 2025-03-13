@@ -76,7 +76,7 @@ def convert_speech_to_text(audio_file):
 # --------------------------
 def translate_text(text, target_language):
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=GEMINI_API_KEY"
         headers = {"Content-Type": "application/json"}
         data = {
             "contents": [{"parts": [{"text": f"Translate this to {target_language}: {text}"}]}]
