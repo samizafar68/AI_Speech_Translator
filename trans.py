@@ -1,12 +1,15 @@
 import streamlit as st
 import whisper
+import requests
 import os
-from gtts import gTTS
-import google.generativeai as genai
-from tempfile import NamedTemporaryFile
+from gtts import gTTS  # Import gTTS for Text-to-Speech
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # --------------------------
-# SET PAGE CONFIG
+# SET PAGE CONFIG (Must be the first command)
 # --------------------------
 st.set_page_config(page_title="AI Speech Translator", page_icon="🎙️", layout="wide")
 
@@ -38,18 +41,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --------------------------
-# CONFIGURE API KEYS
+# CONFIGURE API KEYS (Replace with yours)
 # --------------------------
 GEMINI_API_KEY = st.secrets["google"]["gemini_api_key"]
-genai.configure(api_key=GEMINI_API_KEY)
 
 # --------------------------
-# LOAD WHISPER MODEL
+# LOAD WHISPER MODEL ONCE (Ensure FP32 Mode)
 # --------------------------
 @st.cache_resource
 def load_whisper():
-    model = whisper.load_model("tiny", device="cpu")  # Use "tiny" for lower resource usage
-    model.to("cpu")
+    model = whisper.load_model("small", device="cpu")  # Load model with CPU
+    model.to("cpu")  # Explicitly set model to CPU (FP32)
     return model
 
 whisper_model = load_whisper()
@@ -59,12 +61,12 @@ whisper_model = load_whisper()
 # --------------------------
 def convert_speech_to_text(audio_file):
     try:
-        with NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
-            temp_file.write(audio_file.read())
-            audio_path = temp_file.name
+        audio_path = "temp_audio.wav"
+        with open(audio_path, "wb") as f:
+            f.write(audio_file.read())
         
         result = whisper_model.transcribe(audio_path)
-        os.unlink(audio_path)
+        os.remove(audio_path)  # Clean up temporary file
         return result["text"]
     except Exception as e:
         return f"Error: {str(e)}"
@@ -74,10 +76,21 @@ def convert_speech_to_text(audio_file):
 # --------------------------
 def translate_text(text, target_language):
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        prompt = f"Translate this text to {target_language}: {text}"
-        response = model.generate_content(prompt, request_options={"timeout": 10})
-        return response.text
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_API_KEY}"
+        headers = {"Content-Type": "application/json"}
+        data = {
+            "contents": [{"parts": [{"text": f"Translate this to {target_language}: {text}"}]}]
+        }
+
+        response = requests.post(url, json=data, headers=headers)
+
+        if response.status_code == 200:
+            response_json = response.json()
+            translated_text = response_json.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            return translated_text if translated_text else "Translation not found"
+        else:
+            return f"API Error: {response.status_code} - {response.text}"
+
     except Exception as e:
         return f"Error: {str(e)}"
 
@@ -87,9 +100,8 @@ def translate_text(text, target_language):
 def text_to_speech(text, language):
     try:
         tts = gTTS(text=text, lang=language)
-        with NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
-            audio_path = temp_file.name
-            tts.save(audio_path)
+        audio_path = "output.mp3"
+        tts.save(audio_path)
         return audio_path
     except Exception as e:
         return f"Error: {str(e)}"
@@ -100,6 +112,8 @@ def text_to_speech(text, language):
 st.sidebar.markdown("<h1 style='text-align: center; color :solid black'>🎙️ AI Speech Translator</h1>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='text-align: center;'>A simple tool for speech-to-text, text-to-speech, and translations(speech to Speech)* 🎧</p>", unsafe_allow_html=True)
 
+# CHECKBOX SELECTION
+mode = st.sidebar.radio("Select Mode", ["Speech to Speech", "Text to Speech", "Speech to Text"], index=0)
 language_map = {
     "fr": "French",
     "es": "Spanish",
@@ -116,8 +130,6 @@ language_map = {
     "ko": "Korean"
 }
 
-mode = st.sidebar.radio("Select Mode", ["Speech to Speech", "Text to Speech", "Speech to Text"], index=0)
-
 if mode == "Speech to Speech":
     st.subheader("🎤 Upload Audio for Translation")
     audio_file = st.file_uploader("Upload an audio file", type=["wav", "mp3"])
@@ -125,15 +137,13 @@ if mode == "Speech to Speech":
     
     if st.button("Translate Speech") and audio_file:
         text = convert_speech_to_text(audio_file)
-        st.write(f"Original Text: {text}")
-        translated_text = translate_text(text, language_map[target_language])
-        st.write(f"Translated Text: {translated_text}")
+        translated_text = translate_text(text, target_language)
         audio_path = text_to_speech(translated_text, target_language)
         
         if os.path.exists(audio_path):
             st.subheader("🎧 Translated Speech")
             st.audio(audio_path, format="audio/mp3")
-            os.unlink(audio_path)
+            os.remove(audio_path)
         else:
             st.error("Error generating speech")
 
@@ -143,12 +153,12 @@ elif mode == "Text to Speech":
     language = st.selectbox("Select Language", list(language_map.keys()), format_func=lambda x: language_map[x])
     
     if st.button("Generate Speech") and input_text:
-        translated_text = translate_text(input_text, language_map[language])
+        translated_text = translate_text(input_text, language)
         audio_path = text_to_speech(translated_text, language)
         if os.path.exists(audio_path):
             st.subheader("🔊 Generated Speech")
             st.audio(audio_path, format="audio/mp3")
-            os.unlink(audio_path)
+            os.remove(audio_path)
         else:
             st.error("Error generating speech")
 
@@ -159,7 +169,7 @@ elif mode == "Speech to Text":
     
     if st.button("Convert to Text") and audio_file:
         text = convert_speech_to_text(audio_file)
-        translated_text = translate_text(text, language_map[language])
+        translated_text = translate_text(text, language)
         st.subheader("📄 Transcribed Text")
         st.info(translated_text)
 
