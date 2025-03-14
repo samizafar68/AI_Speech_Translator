@@ -1,6 +1,5 @@
 streamlit
-whisper
+openai-whisper
 requests
-gTTS
-google-generativeai
+gtts
 python-dotenv
